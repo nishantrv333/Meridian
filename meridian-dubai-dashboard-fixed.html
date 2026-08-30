@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian Property Intelligence — Dubai Market Dashboard</title>
+<meta name="description" content="Dubai property market intelligence. Live rate data, verified H1 2026 transaction figures, and community level analysis by Nishant Vatnal.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink:   { DEFAULT:'#08080A', 800:'#101014', 700:'#17171C', 600:'#1F1F26' },
+        line:  'rgba(255,255,255,0.08)',
+        lineL: 'rgba(8,8,10,0.08)',
+        mute:  '#8A8A94',
+        muteL: '#5C5C66',
+        gold:  { DEFAULT:'#C9A227', light:'#E3C566', dark:'#A8871C' }
+      },
+      fontFamily: {
+        display: ['"Plus Jakarta Sans"','system-ui','sans-serif'],
+        body:    ['Inter','system-ui','sans-serif']
+      },
+      letterSpacing: { tightest:'-0.055em' }
+    }
+  }
+}
+</script>
+
+<style>
+  body{ font-family:Inter,system-ui,sans-serif; background:#08080A; color:#fff; -webkit-font-smoothing:antialiased; }
+  .display{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; }
+
+  /* glass */
+  .glass{
+    background:linear-gradient(155deg,rgba(255,255,255,.055),rgba(255,255,255,.015) 45%,rgba(255,255,255,.04));
+    border:1px solid rgba(255,255,255,.09);
+    -webkit-backdrop-filter:blur(24px) saturate(150%); backdrop-filter:blur(24px) saturate(150%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 30px 70px -40px rgba(0,0,0,.9);
+    position:relative; overflow:hidden;
+  }
+  .glass::after{
+    content:''; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+    background:linear-gradient(118deg,rgba(255,255,255,.09),transparent 32%,transparent 70%,rgba(255,255,255,.03));
+  }
+  .glass-light{
+    background:linear-gradient(155deg,rgba(255,255,255,.9),rgba(255,255,255,.62) 46%,rgba(255,255,255,.8));
+    border:1px solid rgba(255,255,255,.9);
+    -webkit-backdrop-filter:blur(20px) saturate(140%); backdrop-filter:blur(20px) saturate(140%);
+    box-shadow:inset 0 1px 0 #fff, 0 30px 70px -44px rgba(8,8,10,.45);
+    position:relative; overflow:hidden;
+  }
+
+  /* ambient */
+  .aura{ position:relative; isolation:isolate; }
+  .aura::before{
+    content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(760px 460px at 10% 0%,rgba(201,162,39,.13),transparent 62%),
+      radial-gradient(620px 480px at 92% 34%,rgba(255,255,255,.05),transparent 64%);
+  }
+
+  /* CTA */
+  .btn{ transition:transform .4s cubic-bezier(.2,.8,.25,1), box-shadow .4s cubic-bezier(.2,.8,.25,1),
+        background-color .35s ease, border-color .35s ease, color .35s ease; }
+  .btn-gold{ background:#C9A227; color:#08080A; box-shadow:0 12px 34px -16px rgba(201,162,39,.8); }
+  .btn-gold:hover{ background:#E3C566; transform:translateY(-2px); box-shadow:0 20px 44px -16px rgba(201,162,39,.95); }
+  .btn-ghost{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.14); color:#fff; }
+  .btn-ghost:hover{ background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.30); transform:translateY(-2px); }
+  .btn:active{ transform:translateY(0); }
+  .btn:focus-visible{ outline:2px solid #E3C566; outline-offset:3px; }
+  .arw{ transition:transform .4s cubic-bezier(.2,.8,.25,1); }
+  .btn:hover .arw{ transform:translateX(4px); }
+
+  .lift{ transition:transform .5s cubic-bezier(.2,.8,.25,1), border-color .5s ease, box-shadow .5s ease; }
+  .lift:hover{ transform:translateY(-6px); border-color:rgba(255,255,255,.20); }
+  .lift-light:hover{ border-color:rgba(201,162,39,.45); }
+
+  .dot{ width:6px;height:6px;border-radius:50%;background:currentColor; }
+  .loading .dot{ animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  .reveal{ opacity:0; transform:translateY(22px); transition:opacity .9s cubic-bezier(.2,.8,.25,1), transform .9s cubic-bezier(.2,.8,.25,1); }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* chart */
+  .tip{ position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-120%);
+        background:rgba(8,8,10,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;
+        padding:9px 13px;font-size:12px;white-space:nowrap;transition:opacity .18s ease;z-index:6;
+        -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px); }
+  .tip b{ display:block;font-size:15px;font-weight:600;color:#E3C566;font-variant-numeric:tabular-nums; }
+
+  /* leaflet */
+  .leaflet-container{ background:#101014; font-family:Inter,sans-serif; }
+  .leaflet-popup-content-wrapper{ border-radius:12px; }
+  .leaflet-popup-content{ margin:12px 15px; font-size:13px; }
+  .leaflet-control-attribution{ background:rgba(8,8,10,.7)!important; color:#8A8A94!important; font-size:10px!important; }
+  .leaflet-control-attribution a{ color:#C9A227!important; }
+
+  @media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} html{scroll-behavior:auto} }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- ══════════ NAV ══════════ -->
+<nav class="fixed top-0 inset-x-0 z-[1000] border-b border-line" style="background:rgba(8,8,10,.72);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="flex items-center justify-between h-[72px] gap-6">
+      <a href="#top" class="flex items-center gap-3 group">
+        <span class="w-8 h-8 rounded-md bg-gold flex items-center justify-center text-ink font-display font-extrabold text-sm">M</span>
+        <span class="leading-none">
+          <span class="display block text-[15px] font-extrabold tracking-[0.16em]">MERIDIAN</span>
+          <span class="block text-[10px] tracking-[0.18em] uppercase text-mute mt-1">Property Intelligence</span>
+        </span>
+      </a>
+      <div class="hidden lg:flex items-center gap-9 text-[13px] text-mute">
+        <a href="#rates" class="hover:text-white transition-colors duration-300">Rates</a>
+        <a href="#market" class="hover:text-white transition-colors duration-300">Market</a>
+        <a href="#services" class="hover:text-white transition-colors duration-300">Services</a>
+        <a href="#communities" class="hover:text-white transition-colors duration-300">Communities</a>
+        <a href="#view" class="hover:text-white transition-colors duration-300">Analysis</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#services" class="btn btn-ghost hidden sm:inline-flex items-center rounded-full px-5 py-2.5 text-[13px] font-medium">Services</a>
+        <a href="mailto:nishantrv333@gmail.com?subject=Dubai%20property%20enquiry" class="btn btn-gold inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold">
+          Book a call <span class="arw">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════ HERO ══════════ -->
+<header id="top" class="aura pt-[72px]">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="flex items-center gap-4 mb-12 reveal">
+      <div class="w-12 h-12 rounded-full bg-gold text-ink flex items-center justify-center font-display font-bold text-sm">NV</div>
+      <div class="text-sm leading-tight">
+        <span class="block font-semibold">Nishant Vatnal</span>
+        <span class="block text-mute text-[13px] mt-0.5">Real Estate Analyst</span>
+      </div>
+    </div>
+
+    <h1 class="display reveal font-extrabold tracking-tightest leading-[0.92] text-[clamp(3rem,9vw,7rem)] max-w-[15ch]">
+      Dubai property,<br><span class="text-gold">read clearly.</span>
+    </h1>
+
+    <p class="reveal mt-10 max-w-2xl text-lg md:text-xl text-mute font-light leading-relaxed">
+      Live interest rate data, verified transaction figures, and an honest view of every community.
+      Written in plain language so you can decide with confidence.
+    </p>
+
+    <div class="reveal mt-14 flex flex-wrap items-center gap-4">
+      <a href="mailto:nishantrv333@gmail.com?subject=Dubai%20property%20enquiry" class="btn btn-gold inline-flex items-center gap-3 rounded-full px-8 py-4 text-[15px] font-semibold">
+        Book a call with Nishant <span class="arw">→</span>
+      </a>
+      <a href="#services" class="btn btn-ghost inline-flex items-center gap-3 rounded-full px-8 py-4 text-[15px] font-medium">
+        View services
+      </a>
+    </div>
+
+    <div class="reveal mt-24 grid grid-cols-2 md:grid-cols-4 gap-px bg-line rounded-2xl overflow-hidden border border-line">
+      <div class="bg-ink-800 px-7 py-8"><p class="display text-3xl font-extrabold tracking-tight">286.43</p><p class="text-[11px] tracking-[0.14em] uppercase text-mute mt-2">AED bn, H1 2026</p></div>
+      <div class="bg-ink-800 px-7 py-8"><p class="display text-3xl font-extrabold tracking-tight">60,303</p><p class="text-[11px] tracking-[0.14em] uppercase text-mute mt-2">Q1 transactions</p></div>
+      <div class="bg-ink-800 px-7 py-8"><p class="display text-3xl font-extrabold tracking-tight">67<span class="text-mute text-xl font-semibold"> to </span>71%</p><p class="text-[11px] tracking-[0.14em] uppercase text-mute mt-2">Off plan share</p></div>
+      <div class="bg-ink-800 px-7 py-8"><p class="display text-3xl font-extrabold tracking-tight">+38%</p><p class="text-[11px] tracking-[0.14em] uppercase text-mute mt-2">Office volumes</p></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════ RATES ══════════ -->
+<section id="rates" class="aura border-t border-line">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="max-w-3xl reveal">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-gold font-semibold">Live data</p>
+      <h2 class="display mt-6 text-[clamp(2.2rem,5vw,4rem)] font-extrabold tracking-tightest leading-[1.02]">
+        The two rates that move Dubai.
+      </h2>
+      <p class="mt-7 text-lg text-mute font-light leading-relaxed">
+        The dirham is pegged to the US dollar. When American rates move, Gulf financing costs follow,
+        usually within the same week. That is why a Dubai desk watches Washington.
+      </p>
+    </div>
+
+    <div class="mt-16 grid md:grid-cols-2 gap-6">
+      <article id="card-DGS10" class="glass lift rounded-3xl p-9 md:p-11 reveal">
+        <span class="rate-bar absolute left-0 top-0 bottom-0 w-[3px] bg-gold z-[2]"></span>
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold font-semibold">10 Year Treasury Yield</p>
+        <p class="text-[11px] text-mute mt-1.5 tracking-wide">FRED series DGS10</p>
+        <p data-value class="display mt-8 text-[clamp(3rem,8vw,4.5rem)] font-light tracking-tightest leading-none tabular-nums">—<span class="text-gold-light text-[0.34em] font-medium ml-2">%</span></p>
+        <p data-asof class="text-[13px] text-mute mt-5">Loading</p>
+        <p class="mt-8 pt-7 border-t border-line text-[15px] text-mute leading-relaxed">
+          This is the benchmark for long term money worldwide. When it rises, mortgage costs here rise with it
+          and buyers who were stretching quietly step back. When it falls, enquiries pick up.
+        </p>
+      </article>
+
+      <article id="card-FEDFUNDS" class="glass lift rounded-3xl p-9 md:p-11 reveal">
+        <span class="rate-bar absolute left-0 top-0 bottom-0 w-[3px] bg-gold z-[2]"></span>
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold font-semibold">Federal Funds Rate</p>
+        <p class="text-[11px] text-mute mt-1.5 tracking-wide">FRED series FEDFUNDS</p>
+        <p data-value class="display mt-8 text-[clamp(3rem,8vw,4.5rem)] font-light tracking-tightest leading-none tabular-nums">—<span class="text-gold-light text-[0.34em] font-medium ml-2">%</span></p>
+        <p data-asof class="text-[13px] text-mute mt-5">Loading</p>
+        <p class="mt-8 pt-7 border-t border-line text-[15px] text-mute leading-relaxed">
+          The UAE Central Bank follows the Federal Reserve to hold the currency peg, so this rate sets the floor
+          under local borrowing. In practice it tells you what a mortgage will cost in six months.
+        </p>
+      </article>
+    </div>
+
+    <!-- chart -->
+    <div class="glass rounded-3xl p-8 md:p-10 mt-6 reveal">
+      <div class="flex flex-wrap items-start justify-between gap-5 mb-8">
+        <div>
+          <h3 id="chartTitle" class="display text-xl font-bold tracking-tight">10 Year Treasury Yield, last 12 months</h3>
+          <p class="text-[13px] text-mute mt-2">Move across the line to read any date.</p>
+        </div>
+        <div class="inline-flex gap-1 p-1 rounded-full border border-line" style="background:rgba(255,255,255,.04)">
+          <button type="button" data-series="DGS10" aria-pressed="true" class="seg-btn rounded-full px-5 py-2 text-[13px] transition-all duration-300">10 Year</button>
+          <button type="button" data-series="FEDFUNDS" aria-pressed="false" class="seg-btn rounded-full px-5 py-2 text-[13px] transition-all duration-300">Fed Funds</button>
+        </div>
+      </div>
+      <div id="plot" class="relative w-full">
+        <div class="py-20 text-center text-mute text-sm">Loading history</div>
+      </div>
+    </div>
+
+    <div class="mt-10 flex flex-wrap items-center gap-6">
+      <button id="refreshBtn" type="button" class="btn btn-ghost inline-flex items-center gap-2.5 rounded-full px-6 py-3 text-[13px] font-medium">
+        <span class="dot text-gold-light"></span> Refresh rates
+      </button>
+      <p id="rateStatus" class="text-[13px] text-mute"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ MARKET ══════════ -->
+<section id="market" class="bg-white text-ink relative isolate">
+  <div class="absolute inset-0 -z-10 pointer-events-none" style="background:radial-gradient(700px 420px at 6% 0%,rgba(201,162,39,.10),transparent 62%),radial-gradient(600px 420px at 96% 100%,rgba(8,8,10,.05),transparent 62%)"></div>
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="max-w-3xl reveal">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-gold-dark font-semibold">Dubai market, first half 2026</p>
+      <h2 class="display mt-6 text-[clamp(2.2rem,5vw,4rem)] font-extrabold tracking-tightest leading-[1.02]">
+        What the market actually did.
+      </h2>
+      <p class="mt-7 text-lg text-muteL font-light leading-relaxed">
+        Every figure below comes from a published report and carries its source. No estimates and no smoothing.
+      </p>
+    </div>
+
+    <div class="mt-16 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <article class="glass-light lift lift-light rounded-3xl p-9 lg:col-span-2 flex flex-col reveal">
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold-dark font-semibold">Total sales value</p>
+        <p class="display mt-6 text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold tracking-tightest leading-none">AED 286.43 billion</p>
+        <p class="text-[15px] text-muteL mt-4">Second highest first half in the history of the emirate.</p>
+        <p class="mt-6 text-[15px] text-muteL leading-relaxed flex-1">
+          For scale, that is roughly one and a half billion dirhams of property changing hands every day for six
+          months. Depth like this is what stops a quiet period turning into a downturn.
+        </p>
+        <p class="mt-8 pt-5 border-t border-lineL text-[12px] text-muteL">Source: TruHauz, July 2026</p>
+      </article>
+
+      <article class="glass-light lift lift-light rounded-3xl p-9 flex flex-col reveal">
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold-dark font-semibold">Record quarter</p>
+        <p class="display mt-6 text-[clamp(2rem,4vw,2.6rem)] font-extrabold tracking-tightest leading-none">AED 252bn</p>
+        <p class="text-[15px] text-muteL mt-4">Across 60,303 transactions in Q1 2026.</p>
+        <p class="mt-6 text-[15px] text-muteL leading-relaxed flex-1">
+          The strongest quarter on record. Most of the half year value landed early, so a calmer second quarter
+          is a return to normal rather than a warning.
+        </p>
+        <p class="mt-8 pt-5 border-t border-lineL text-[12px] text-muteL">Source: TruHauz, July 2026</p>
+      </article>
+
+      <article class="glass-light lift lift-light rounded-3xl p-9 flex flex-col reveal">
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold-dark font-semibold">Off plan share</p>
+        <p class="display mt-6 text-[clamp(2rem,4vw,2.6rem)] font-extrabold tracking-tightest leading-none">67 to 71%</p>
+        <p class="text-[15px] text-muteL mt-4">Of first half transaction volume.</p>
+        <p class="mt-6 text-[15px] text-muteL leading-relaxed flex-1">
+          Around two in three buyers purchase before completion and pay the developer in instalments rather than
+          borrowing up front. That is why Dubai feels rate movements less sharply than London or New York.
+        </p>
+        <p class="mt-8 pt-5 border-t border-lineL text-[12px] text-muteL">Source: multiple market reports, July 2026</p>
+      </article>
+
+      <article class="glass-light lift lift-light rounded-3xl p-9 flex flex-col reveal">
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold-dark font-semibold">Apartment price index</p>
+        <p class="display mt-6 text-[clamp(2rem,4vw,2.6rem)] font-extrabold tracking-tightest leading-none">145.19</p>
+        <p class="text-[15px] text-muteL mt-4">Up from 144.10, a gain of 0.75% in the month.</p>
+        <p class="mt-6 text-[15px] text-muteL leading-relaxed flex-1">
+          Prices are still rising but gently. Under one percent in a month describes a market walking rather than
+          sprinting, which is what you want when buying to hold.
+        </p>
+        <p class="mt-8 pt-5 border-t border-lineL text-[12px] text-muteL">Source: REIDIN, January 2026</p>
+      </article>
+
+      <article class="glass-light lift lift-light rounded-3xl p-9 flex flex-col reveal">
+        <p class="text-[11px] tracking-[0.18em] uppercase text-gold-dark font-semibold">Commercial</p>
+        <p class="display mt-6 text-[clamp(2rem,4vw,2.6rem)] font-extrabold tracking-tightest leading-none">AED 65.23bn</p>
+        <p class="text-[15px] text-muteL mt-4">Office transaction volumes rose 38% on the year.</p>
+        <p class="mt-6 text-[15px] text-muteL leading-relaxed flex-1">
+          Companies do not commit to offices unless they intend to grow here. This is the clearest signal on the
+          page that demand is genuine rather than speculative.
+        </p>
+        <p class="mt-8 pt-5 border-t border-lineL text-[12px] text-muteL">Source: The Realty Today, August 2026</p>
+      </article>
+    </div>
+
+    <div class="glass-light rounded-3xl p-9 md:p-11 mt-6 reveal" id="splitCard">
+      <h3 class="display text-xl font-bold tracking-tight">Where the AED 286.43 billion landed</h3>
+      <p class="text-[13px] text-muteL mt-2 mb-10">The first quarter carried almost the whole half year.</p>
+      <div id="bars" class="space-y-5"></div>
+      <p class="mt-9 pt-5 border-t border-lineL text-[12px] text-muteL">
+        First half and first quarter figures published by TruHauz, July 2026. The second quarter figure is the
+        difference between them.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ SERVICES ══════════ -->
+<section id="services" class="aura border-t border-line">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="max-w-3xl reveal">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-gold font-semibold">Services</p>
+      <h2 class="display mt-6 text-[clamp(2.2rem,5vw,4rem)] font-extrabold tracking-tightest leading-[1.02]">
+        How I work with clients.
+      </h2>
+      <p class="mt-7 text-lg text-mute font-light leading-relaxed">
+        Three areas, each designed to answer one question clearly before you commit capital.
+      </p>
+    </div>
+
+    <div class="mt-16 grid md:grid-cols-3 gap-6">
+      <article class="glass lift rounded-3xl p-9 md:p-10 flex flex-col reveal">
+        <span class="display text-gold text-sm font-bold tracking-[0.2em]">01</span>
+        <h3 class="display mt-7 text-2xl font-bold tracking-tight leading-snug">Financial analysis and valuation</h3>
+        <p class="mt-5 text-[15px] text-mute leading-relaxed flex-1">
+          I build the numbers behind an investment before you buy. Expected rental income, running costs, service
+          charges, financing, and the realistic return over your holding period. You receive a clear valuation and
+          the assumptions behind it, so you can test them yourself.
+        </p>
+        <a href="mailto:nishantrv333@gmail.com?subject=Financial%20analysis%20and%20valuation" class="mt-9 inline-flex items-center gap-2 text-[13px] font-semibold text-gold hover:text-gold-light transition-colors duration-300 group">
+          Discuss a valuation <span class="arw">→</span>
+        </a>
+      </article>
+
+      <article class="glass lift rounded-3xl p-9 md:p-10 flex flex-col reveal">
+        <span class="display text-gold text-sm font-bold tracking-[0.2em]">02</span>
+        <h3 class="display mt-7 text-2xl font-bold tracking-tight leading-snug">Market reports and trends</h3>
+        <p class="mt-5 text-[15px] text-mute leading-relaxed flex-1">
+          Regular written reports on where prices, rents and supply are heading, by community and by property type.
+          I identify the trends early, explain what is driving them, and tell you which ones actually matter for
+          your portfolio rather than listing everything.
+        </p>
+        <a href="mailto:nishantrv333@gmail.com?subject=Market%20analysis%20report" class="mt-9 inline-flex items-center gap-2 text-[13px] font-semibold text-gold hover:text-gold-light transition-colors duration-300 group">
+          Request a report <span class="arw">→</span>
+        </a>
+      </article>
+
+      <article class="glass lift rounded-3xl p-9 md:p-10 flex flex-col reveal">
+        <span class="display text-gold text-sm font-bold tracking-[0.2em]">03</span>
+        <h3 class="display mt-7 text-2xl font-bold tracking-tight leading-snug">Acquisition due diligence</h3>
+        <p class="mt-5 text-[15px] text-mute leading-relaxed flex-1">
+          Before you sign, I check what you are actually buying. Developer track record, handover history, title and
+          registration status, building condition, service charge history, and how the price compares with recent
+          sales in the same tower. You get a written summary with the risks stated plainly.
+        </p>
+        <a href="mailto:nishantrv333@gmail.com?subject=Due%20diligence%20on%20a%20property" class="mt-9 inline-flex items-center gap-2 text-[13px] font-semibold text-gold hover:text-gold-light transition-colors duration-300 group">
+          Start due diligence <span class="arw">→</span>
+        </a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ COMMUNITIES ══════════ -->
+<section id="communities" class="bg-ink-800 border-t border-line">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="max-w-3xl reveal">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-gold font-semibold">Communities</p>
+      <h2 class="display mt-6 text-[clamp(2.2rem,5vw,4rem)] font-extrabold tracking-tightest leading-[1.02]">
+        Five areas, five different answers.
+      </h2>
+      <p class="mt-7 text-lg text-mute font-light leading-relaxed">
+        Dubai is not a single market. Select an area for the honest case in favour and against, with its location on the map.
+      </p>
+    </div>
+
+    <div id="tabs" role="tablist" class="mt-14 flex flex-wrap gap-3 reveal"></div>
+
+    <article class="glass rounded-3xl overflow-hidden mt-8 reveal">
+      <div class="relative h-[300px] md:h-[420px] overflow-hidden bg-ink-700">
+        <img id="cPhoto" src="" alt="" class="w-full h-full object-cover scale-[1.03] transition-transform duration-[1400ms] ease-out">
+        <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(8,8,10,.96) 4%,rgba(8,8,10,.35) 52%,rgba(8,8,10,.1))"></div>
+        <div class="absolute left-8 right-8 md:left-11 md:right-11 bottom-8 md:bottom-10">
+          <p id="cType" class="text-[11px] tracking-[0.2em] uppercase text-gold font-semibold"></p>
+          <h3 id="cName" class="display mt-3 text-[clamp(1.8rem,4.5vw,3rem)] font-extrabold tracking-tightest leading-none"></h3>
+          <p id="cTag" class="text-mute mt-3 text-[15px] font-light"></p>
+        </div>
+        <p id="cCredit" class="absolute right-4 top-4 text-[10px] text-white/45"></p>
+      </div>
+
+      <div class="p-8 md:p-12">
+        <p id="cBlurb" class="text-lg text-mute font-light leading-relaxed max-w-3xl"></p>
+
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 mt-12">
+          <div>
+            <h4 class="text-[11px] tracking-[0.18em] uppercase font-semibold text-gold">Works well for</h4>
+            <ul id="cPros" class="mt-6 space-y-4"></ul>
+          </div>
+          <div>
+            <h4 class="text-[11px] tracking-[0.18em] uppercase font-semibold text-mute">Consider carefully</h4>
+            <ul id="cCons" class="mt-6 space-y-4"></ul>
+          </div>
+        </div>
+
+        <div id="cMeta" class="flex flex-wrap gap-3 mt-12 pt-9 border-t border-line"></div>
+
+        <div class="mt-12">
+          <h4 class="text-[11px] tracking-[0.18em] uppercase font-semibold text-mute mb-5">Location</h4>
+          <div class="rounded-2xl overflow-hidden border border-line">
+            <div id="map" class="h-[300px] md:h-[380px] w-full z-[1]" role="region" aria-label="Map of Dubai communities"></div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ══════════ ANALYSIS ══════════ -->
+<section id="view" class="bg-white text-ink relative isolate">
+  <div class="absolute inset-0 -z-10 pointer-events-none" style="background:radial-gradient(650px 400px at 88% 4%,rgba(201,162,39,.10),transparent 60%)"></div>
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-32 md:py-48">
+    <div class="grid lg:grid-cols-[280px_1fr] gap-14 lg:gap-24">
+      <aside class="reveal">
+        <div class="glass-light rounded-3xl p-8 lg:sticky lg:top-28">
+          <div class="w-14 h-14 rounded-full bg-gold text-ink flex items-center justify-center font-display font-bold">NV</div>
+          <p class="display mt-6 text-lg font-bold tracking-tight">Nishant Vatnal</p>
+          <p class="text-[14px] text-muteL mt-1.5">Real Estate Analyst</p>
+          <a href="mailto:nishantrv333@gmail.com" class="mt-6 inline-block text-[13px] text-gold-dark font-medium hover:text-gold transition-colors duration-300 break-all">nishantrv333@gmail.com</a>
+        </div>
+      </aside>
+
+      <div class="reveal">
+        <p class="text-[11px] tracking-[0.2em] uppercase text-gold-dark font-semibold">Analysis</p>
+        <h2 class="display mt-6 text-[clamp(2.2rem,5vw,3.6rem)] font-extrabold tracking-tightest leading-[1.04]">
+          What this means for you.
+        </h2>
+
+        <div class="mt-12 space-y-8 max-w-2xl">
+          <p class="text-xl leading-relaxed">
+            United States rates set the price of money everywhere the dollar reaches, and the dirham is tied to the
+            dollar. So the two figures at the top of this page quietly decide what a mortgage costs here, even
+            though neither is a Dubai number.
+          </p>
+          <p class="text-lg text-muteL leading-relaxed">
+            Now look at the off plan share. Around seven in ten buyers this year purchased before completion and
+            paid the developer in instalments instead of taking a large loan on day one. That is the reason Dubai
+            kept setting records while borrowing stayed expensive. A large part of this market simply is not in the
+            mortgage queue.
+          </p>
+          <p class="text-lg text-muteL leading-relaxed">
+            The price index tells the same steady story. Apartments rose 0.75% in a month, which is measured rather
+            than overheated. Put that alongside AED 286 billion of sales in six months and AED 65 billion of
+            commercial deals and you have a market with real depth and real occupiers.
+            <strong class="text-ink font-semibold">Office volumes rising 38% on the year is the line I would
+            underline</strong>, because businesses are committing to stay.
+          </p>
+          <p class="text-lg text-muteL leading-relaxed">
+            So what would I tell you this week? If you are buying off plan, the payment plan and the developer track
+            record matter more than the rate picture, so check both carefully. If you need a mortgage, watch the ten
+            year yield above, because that is what moves your monthly payment, and secure pre approval while your
+            number is known. If you are choosing between communities, read the honest case above and then speak to
+            me about the one you are weighing.
+          </p>
+        </div>
+
+        <div class="mt-14">
+          <a href="mailto:nishantrv333@gmail.com?subject=Dubai%20property%20enquiry" class="btn btn-gold inline-flex items-center gap-3 rounded-full px-8 py-4 text-[15px] font-semibold">
+            Book a call with Nishant <span class="arw">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CONTACT BAND ══════════ -->
+<section class="aura border-t border-line">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-28 md:py-40">
+    <div class="glass rounded-[2rem] px-9 py-16 md:px-16 md:py-24 text-center reveal">
+      <h2 class="display text-[clamp(2rem,5vw,3.6rem)] font-extrabold tracking-tightest leading-[1.04] max-w-3xl mx-auto">
+        Considering a purchase in Dubai?
+      </h2>
+      <p class="mt-7 text-lg text-mute font-light max-w-xl mx-auto leading-relaxed">
+        Send a note with what you are looking at. I will reply with a straight assessment, no obligation.
+      </p>
+      <div class="mt-12 flex flex-wrap justify-center gap-4">
+        <a href="mailto:nishantrv333@gmail.com?subject=Dubai%20property%20enquiry" class="btn btn-gold inline-flex items-center gap-3 rounded-full px-8 py-4 text-[15px] font-semibold">
+          Book a call with Nishant <span class="arw">→</span>
+        </a>
+        <a href="#services" class="btn btn-ghost inline-flex items-center rounded-full px-8 py-4 text-[15px] font-medium">Services</a>
+      </div>
+      <p class="mt-9 text-[13px] text-mute">nishantrv333@gmail.com</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer class="border-t border-line bg-ink">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 py-20 md:py-28">
+    <div class="grid md:grid-cols-[1.4fr_1fr_1fr] gap-14">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-md bg-gold flex items-center justify-center text-ink font-display font-extrabold text-sm">M</span>
+          <span class="display text-[15px] font-extrabold tracking-[0.16em]">MERIDIAN</span>
+        </div>
+        <p class="mt-6 text-[15px] text-mute font-light leading-relaxed max-w-sm">
+          Independent property research and valuation for the Dubai market. Prepared by Nishant Vatnal,
+          Real Estate Analyst.
+        </p>
+        <a href="mailto:nishantrv333@gmail.com" class="mt-6 inline-block text-[14px] text-gold hover:text-gold-light transition-colors duration-300">nishantrv333@gmail.com</a>
+      </div>
+
+      <div>
+        <h3 class="text-[11px] tracking-[0.18em] uppercase text-gold font-semibold">Sources</h3>
+        <ul class="mt-6 space-y-4 text-[13px] text-mute leading-relaxed">
+          <li>TruHauz, first half and first quarter 2026 figures, July 2026</li>
+          <li>Published market reports, off plan share, July 2026</li>
+          <li>REIDIN apartment sales price index, January 2026</li>
+          <li>The Realty Today, commercial and office data, August 2026</li>
+          <li>Federal Reserve Bank of St. Louis, live rate data</li>
+          <li>Map tiles by OpenStreetMap contributors</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-[11px] tracking-[0.18em] uppercase text-gold font-semibold">Notes</h3>
+        <ul class="mt-6 space-y-4 text-[13px] text-mute leading-relaxed">
+          <li>Rate figures refresh live. Market figures are updated as new reports are published.</li>
+          <li>Community assessments and indicative pricing are analyst opinion, not a formal valuation.</li>
+          <li>Provided for information only. This is not an offer or investment advice.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-16 pt-8 border-t border-line flex flex-wrap justify-between gap-4 text-[13px] text-mute">
+      <p>Prepared by <span class="text-white font-medium">Nishant Vatnal, Real Estate Analyst</span></p>
+      <p>Last updated <span id="footStamp">—</span></p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ══════════════════════════════════════════════════
+   CONFIG
+   ══════════════════════════════════════════════════ */
+const FRED_API_KEY = "PASTE_YOUR_KEY_HERE";   // leave blank if using the proxy
+const FRED_PROXY   = "";                       // e.g. "https://your-worker.workers.dev"
+
+const FALLBACK = {
+  DGS10:    { value:"4.18", asof:"2026-08-29" },
+  FEDFUNDS: { value:"4.33", asof:"2026-07-31" }
+};
+
+/* Replace these with your own licensed photography.
+   Drop files in an /img folder and set e.g. downtown:"img/downtown.jpg" */
+const PHOTOS = {
+  downtown:    { url:"https://commons.wikimedia.org/wiki/Special:FilePath/Dubai%20Skyline%20mit%20Burj%20Khalifa%20(cropped).jpg?width=1600", credit:"Wikimedia Commons" },
+  marina:      { url:"https://commons.wikimedia.org/wiki/Special:FilePath/UAE%20Dubai%20Marina%20img1%20asv2018-01.jpg?width=1600", credit:"A. Savin, Wikimedia Commons" },
+  palm:        { url:"https://commons.wikimedia.org/wiki/Special:FilePath/Palm%20Jumeirah%20from%20Dubai%20Marina.jpg?width=1600", credit:"Kallerna, Wikimedia Commons" },
+  businessbay: { url:"https://commons.wikimedia.org/wiki/Special:FilePath/Dubai%20Skyline%20from%20Business%20Bay%20-%20Dubai,%20UAE.jpg?width=1600", credit:"Wikimedia Commons" },
+  jvc:         { url:"", credit:"" }
+};
+
+/* ══════════════════════════════════════════════════
+   RATES AND CHART
+   ══════════════════════════════════════════════════ */
+const SERIES = ["DGS10","FEDFUNDS"];
+const META = {
+  DGS10:    { title:"10 Year Treasury Yield, last 12 months", limit:260 },
+  FEDFUNDS: { title:"Federal Funds Rate, last 3 years",       limit:36  }
+};
+const history = { DGS10:null, FEDFUNDS:null };
+let current = "DGS10";
+
+const statusEl   = document.getElementById("rateStatus");
+const refreshBtn = document.getElementById("refreshBtn");
+const plot       = document.getElementById("plot");
+
+const fmtDate = iso => {
+  const d = new Date(iso + "T00:00:00");
+  return isNaN(d) ? iso : d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+};
+
+function fredUrl(id, limit){
+  if (FRED_PROXY) return FRED_PROXY + "?series_id=" + id + "&limit=" + limit;
+  return "https://api.stlouisfed.org/fred/series/observations?series_id=" + id
+       + "&api_key=" + FRED_API_KEY + "&file_type=json&sort_order=desc&limit=" + limit;
+}
+
+async function getSeries(id){
+  const res = await fetch(fredUrl(id, META[id].limit), { cache:"no-store" });
+  if (!res.ok) throw new Error("FRED returned " + res.status);
+  const json = await res.json();
+  const rows = (json.observations||[]).filter(o => o.value !== ".")
+                 .map(o => ({ date:o.date, value:Number(o.value) }));
+  if (!rows.length) throw new Error("No observations for " + id);
+  return { latest: rows[0], series: rows.slice().sort((a,b)=> a.date < b.date ? -1 : 1) };
+}
+
+function paintCard(id, value, asof, live){
+  const c = document.getElementById("card-" + id);
+  c.querySelector("[data-value]").innerHTML =
+    value + '<span class="text-gold-light text-[0.34em] font-medium ml-2">%</span>';
+  c.querySelector("[data-asof]").textContent =
+    live ? "Updated by FRED on " + fmtDate(asof) : "Last known figure, " + fmtDate(asof);
+  c.querySelector(".rate-bar").style.background = live ? "#C9A227" : "#4A4A52";
+}
+
+function stamp(){
+  document.getElementById("footStamp").textContent =
+    new Date().toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+
+function drawChart(id){
+  const data = history[id];
+  document.getElementById("chartTitle").textContent = META[id].title;
+  if (!data || data.length < 2){
+    plot.innerHTML = '<div class="py-20 text-center text-mute text-sm">Chart unavailable. Select refresh to try again.</div>';
+    return;
+  }
+
+  const W=940,H=300,mL=48,mR=16,mT=18,mB=32;
+  const xs = i => mL + (i/(data.length-1))*(W-mL-mR);
+  const lo = Math.min(...data.map(d=>d.value)), hi = Math.max(...data.map(d=>d.value));
+  const pad = (hi-lo)*0.2 || 0.2, y0 = lo-pad, y1 = hi+pad;
+  const ys = v => mT + (1-(v-y0)/(y1-y0))*(H-mT-mB);
+
+  const line = data.map((d,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(d.value).toFixed(1)).join(" ");
+  const area = line+" L "+xs(data.length-1).toFixed(1)+" "+(H-mB)+" L "+xs(0).toFixed(1)+" "+(H-mB)+" Z";
+
+  const grid = [y0+(y1-y0)*0.12,(y0+y1)/2,y1-(y1-y0)*0.12].map(t =>
+    '<line x1="'+mL+'" x2="'+(W-mR)+'" y1="'+ys(t).toFixed(1)+'" y2="'+ys(t).toFixed(1)+'" stroke="rgba(255,255,255,.07)"/>'
+  + '<text x="'+(mL-12)+'" y="'+(ys(t)+4).toFixed(1)+'" text-anchor="end" fill="#8A8A94" font-size="11">'+t.toFixed(2)+'</text>').join("");
+
+  plot.innerHTML =
+    '<svg viewBox="0 0 '+W+' '+H+'" class="w-full h-auto block overflow-visible" tabindex="0" role="img" aria-label="'+META[id].title+'">'
+  + '<defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">'
+  + '<stop offset="0%" stop-color="#C9A227" stop-opacity=".34"/><stop offset="100%" stop-color="#C9A227" stop-opacity="0"/>'
+  + '</linearGradient></defs>'
+  + grid
+  + '<path d="'+area+'" fill="url(#gr)"/>'
+  + '<path d="'+line+'" fill="none" stroke="#E3C566" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+  + '<line id="cx" x1="0" x2="0" y1="'+mT+'" y2="'+(H-mB)+'" stroke="rgba(227,197,102,.5)" opacity="0"/>'
+  + '<circle id="cd" r="5" fill="#E3C566" stroke="#08080A" stroke-width="2" opacity="0"/>'
+  + '<text x="'+mL+'" y="'+(H-8)+'" fill="#8A8A94" font-size="11">'+fmtDate(data[0].date)+'</text>'
+  + '<text x="'+(W-mR)+'" y="'+(H-8)+'" text-anchor="end" fill="#8A8A94" font-size="11">'+fmtDate(data[data.length-1].date)+'</text>'
+  + '<rect x="'+mL+'" y="'+mT+'" width="'+(W-mL-mR)+'" height="'+(H-mT-mB)+'" fill="transparent"/>'
+  + '</svg><div class="tip" id="tip"></div>';
+
+  const svg = plot.querySelector("svg"), tip = plot.querySelector("#tip");
+  const cx = plot.querySelector("#cx"), cd = plot.querySelector("#cd");
+
+  const move = clientX => {
+    const r = svg.getBoundingClientRect();
+    const vx = (clientX - r.left)/r.width*W;
+    let i = Math.round((vx-mL)/(W-mL-mR)*(data.length-1));
+    i = Math.max(0, Math.min(data.length-1, i));
+    const d = data[i], px = xs(i), py = ys(d.value);
+    cx.setAttribute("x1",px); cx.setAttribute("x2",px); cx.setAttribute("opacity","1");
+    cd.setAttribute("cx",px); cd.setAttribute("cy",py); cd.setAttribute("opacity","1");
+    tip.innerHTML = "<b>"+d.value.toFixed(2)+"%</b>"+fmtDate(d.date);
+    tip.style.left = (px/W*r.width)+"px";
+    tip.style.top  = (py/H*r.height)+"px";
+    tip.style.opacity = "1";
+  };
+  const hide = () => { tip.style.opacity="0"; cx.setAttribute("opacity","0"); cd.setAttribute("opacity","0"); };
+
+  svg.addEventListener("mousemove", e => move(e.clientX));
+  svg.addEventListener("mouseleave", hide);
+  svg.addEventListener("touchstart", e => move(e.touches[0].clientX), {passive:true});
+  svg.addEventListener("touchmove",  e => move(e.touches[0].clientX), {passive:true});
+  svg.addEventListener("touchend", hide);
+  svg.addEventListener("blur", hide);
+  let ki = Math.floor(data.length/2);
+  svg.addEventListener("keydown", e => {
+    if (e.key!=="ArrowLeft" && e.key!=="ArrowRight") return;
+    e.preventDefault();
+    ki = Math.max(0, Math.min(data.length-1, ki + (e.key==="ArrowRight"?1:-1)));
+    const r = svg.getBoundingClientRect();
+    move(r.left + xs(ki)/W*r.width);
+  });
+}
+
+function styleSeg(){
+  document.querySelectorAll(".seg-btn").forEach(b => {
+    const on = b.getAttribute("aria-pressed") === "true";
+    b.className = "seg-btn rounded-full px-5 py-2 text-[13px] transition-all duration-300 "
+      + (on ? "bg-gold text-ink font-semibold" : "text-mute hover:text-white");
+  });
+}
+document.querySelectorAll(".seg-btn").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".seg-btn").forEach(x => x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    current = b.dataset.series;
+    styleSeg(); drawChart(current);
+  });
+});
+styleSeg();
+
+async function loadRates(){
+  refreshBtn.disabled = true; refreshBtn.classList.add("loading");
+  statusEl.textContent = "Fetching the latest figures";
+  statusEl.className = "text-[13px] text-mute";
+
+  const out = await Promise.allSettled(SERIES.map(getSeries));
+  let fails = 0;
+  out.forEach((r,i) => {
+    const id = SERIES[i];
+    if (r.status === "fulfilled"){
+      paintCard(id, r.value.latest.value.toFixed(2), r.value.latest.date, true);
+      history[id] = r.value.series;
+    } else {
+      fails++;
+      paintCard(id, FALLBACK[id].value, FALLBACK[id].asof, false);
+      history[id] = null;
+      console.warn("FRED request failed for " + id + ":", r.reason);
+    }
+  });
+
+  drawChart(current);
+  refreshBtn.disabled = false; refreshBtn.classList.remove("loading");
+  stamp();
+
+  if (!fails){
+    statusEl.textContent = "Live from FRED, refreshed just now.";
+    statusEl.className = "text-[13px] text-mute";
+  } else if (fails === SERIES.length){
+    statusEl.textContent = "Live rate data is temporarily unavailable, showing last known figures. Check the key or proxy address, then select refresh.";
+    statusEl.className = "text-[13px] text-gold-light";
+  } else {
+    statusEl.textContent = "One series returned live data and one did not. The other shows its last known figure.";
+    statusEl.className = "text-[13px] text-gold-light";
+  }
+}
+refreshBtn.addEventListener("click", loadRates);
+stamp();
+loadRates();
+
+/* ══════════════════════════════════════════════════
+   SPLIT BARS
+   ══════════════════════════════════════════════════ */
+const SPLIT = [
+  { label:"First quarter 2026", v:252,    accent:true  },
+  { label:"Second quarter 2026", v:34.43, accent:false },
+  { label:"First half total",   v:286.43, accent:true  }
+];
+document.getElementById("bars").innerHTML = SPLIT.map(s => `
+  <div class="grid sm:grid-cols-[190px_1fr] gap-3 sm:gap-6 items-center group">
+    <p class="text-[14px] text-muteL">${s.label}</p>
+    <div class="h-11 rounded-xl bg-ink/[0.06] overflow-hidden">
+      <div class="bar-fill h-full rounded-xl flex items-center justify-end pr-4 text-[13px] font-semibold whitespace-nowrap transition-[width] duration-[1200ms] ease-out ${s.accent?'bg-gold text-ink':'bg-ink/80 text-white'}"
+           style="width:0" data-w="${(s.v/286.43*100).toFixed(1)}">AED ${s.v}bn</div>
+    </div>
+  </div>`).join("");
+
+/* ══════════════════════════════════════════════════
+   COMMUNITIES
+   ══════════════════════════════════════════════════ */
+const AREAS = [
+  { key:"downtown", name:"Downtown Dubai", type:"Prime residential", tag:"The address buyers ask for by name",
+    lat:25.1972, lng:55.2744, ticket:"From AED 1.8m", yield:"Around 5.5%",
+    blurb:"Home to the Burj Khalifa, Dubai Mall and the Opera District. The most recognised location in the emirate and the easiest to sell on.",
+    pros:["Deepest resale demand in Dubai","Strongest short stay rental rates in the city","Established developers and mature buildings","Walking distance to offices, retail and dining"],
+    cons:["Highest entry price per square foot","Service charges sit above the city average","Traffic and ongoing construction","Rental yields lag more affordable areas"] },
+
+  { key:"marina", name:"Dubai Marina", type:"Rental performer", tag:"Waterfront towers with dependable tenants",
+    lat:25.0805, lng:55.1403, ticket:"From AED 1.2m", yield:"Around 6.5%",
+    blurb:"A dense waterfront district with the deepest tenant pool in Dubai. If reliable rent matters most to you, this is the place to look first.",
+    pros:["Very high occupancy throughout the year","Strong holiday let and corporate demand","Metro, tram and beach within walking distance","Wide choice of sizes and price points"],
+    cons:["Older towers need a maintenance review","Parking is limited in several buildings","Strong competition between landlords","Some sea views already built out"] },
+
+  { key:"palm", name:"Palm Jumeirah", type:"Trophy asset", tag:"Limited land is the whole investment case",
+    lat:25.1124, lng:55.1390, ticket:"From AED 3m", yield:"Around 4.5%",
+    blurb:"A fixed island footprint that cannot be extended. Scarcity does the work here, which is why capital growth has led the market.",
+    pros:["Supply is capped with no new land available","Best capital appreciation record in Dubai","Private beach access for residents","Attracts the strongest international buyers"],
+    cons:["Large capital commitment to enter","Lower rental yield than mainland stock","Single access road congests at peak times","Villa maintenance costs are significant"] },
+
+  { key:"businessbay", name:"Business Bay", type:"Mixed use growth", tag:"Downtown adjacency at a lower entry price",
+    lat:25.1857, lng:55.2769, ticket:"From AED 1m", yield:"Around 6.8%",
+    blurb:"Canal side towers a short bridge from Downtown at a meaningfully lower price. Review the handover pipeline before you commit.",
+    pros:["Minutes from Downtown for less money","Strong nearby office and commercial demand","Good yields for a central location","Canal frontage on newer buildings"],
+    cons:["Substantial supply still to be delivered","Build quality varies sharply between towers","Construction continues in parts of the district","Rents soften when handovers arrive together"] },
+
+  { key:"jvc", name:"Jumeirah Village Circle", type:"Entry level investment", tag:"The value end, and the strongest yields",
+    lat:25.0576, lng:55.2098, ticket:"From AED 600k", yield:"Around 7.5%",
+    blurb:"Low entry prices and the highest yields on this list. Where most first time investors begin building a portfolio.",
+    pros:["Lowest entry price of the five areas","Highest rental yields in this selection","Family friendly with growing amenities","Straightforward to add a second or third unit"],
+    cons:["Furthest from the beach and Downtown","Road access congests at peak hours","Large supply of very similar apartments","Slower capital growth than prime districts"] }
+];
+
+function placeholderImg(name){
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620">'
+    + '<rect width="1200" height="620" fill="#101014"/>'
+    + '<g fill="none" stroke="#C9A227" stroke-opacity=".22" stroke-width="1.5">'
+    + '<rect x="220" y="330" width="96" height="290"/><rect x="340" y="230" width="80" height="390"/>'
+    + '<rect x="446" y="140" width="60" height="480"/><rect x="532" y="286" width="112" height="334"/>'
+    + '<rect x="670" y="200" width="78" height="420"/><rect x="774" y="360" width="120" height="260"/></g>'
+    + '<text x="600" y="120" text-anchor="middle" fill="#C9A227" font-family="Inter,sans-serif" font-size="22" letter-spacing="5">'
+    + name.toUpperCase() + '</text>'
+    + '<text x="600" y="156" text-anchor="middle" fill="#8A8A94" font-family="Inter,sans-serif" font-size="14">'
+    + 'Add your photograph in the PHOTOS setting</text></svg>';
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+const tabsEl = document.getElementById("tabs");
+tabsEl.innerHTML = AREAS.map((a,i) =>
+  `<button type="button" role="tab" data-i="${i}" aria-selected="${i===0}"
+     class="tab btn rounded-full px-6 py-3 text-[13px] font-medium">${a.name}</button>`).join("");
+
+function styleTabs(active){
+  tabsEl.querySelectorAll(".tab").forEach((t,i) => {
+    const on = i === active;
+    t.setAttribute("aria-selected", String(on));
+    t.className = "tab btn rounded-full px-6 py-3 text-[13px] transition-all duration-400 "
+      + (on ? "bg-gold text-ink font-semibold" : "border border-line text-mute hover:text-white hover:border-white/25 font-medium");
+  });
+}
+
+function select(i){
+  const a = AREAS[i];
+  const photo = PHOTOS[a.key] || { url:"", credit:"" };
+  const img = document.getElementById("cPhoto");
+
+  img.style.opacity = "0";
+  img.onerror = () => { img.src = placeholderImg(a.name); img.onerror = null; };
+  img.onload  = () => { img.style.opacity = "1"; };
+  img.style.transition = "opacity .5s ease, transform 1.4s ease-out";
+  img.src = photo.url || placeholderImg(a.name);
+  img.alt = a.name + ", Dubai";
+  document.getElementById("cCredit").textContent = photo.url && photo.credit ? "Photo: " + photo.credit : "";
+
+  document.getElementById("cType").textContent  = a.type;
+  document.getElementById("cName").textContent  = a.name;
+  document.getElementById("cTag").textContent   = a.tag;
+  document.getElementById("cBlurb").textContent = a.blurb;
+
+  document.getElementById("cPros").innerHTML = a.pros.map(p =>
+    `<li class="flex gap-4 text-[15px] text-mute leading-relaxed"><span class="text-gold mt-0.5 flex-none">✓</span><span>${p}</span></li>`).join("");
+  document.getElementById("cCons").innerHTML = a.cons.map(c =>
+    `<li class="flex gap-4 text-[15px] text-mute leading-relaxed"><span class="text-white/25 mt-0.5 flex-none">✕</span><span>${c}</span></li>`).join("");
+
+  document.getElementById("cMeta").innerHTML = [
+    ["Entry price", a.ticket], ["Indicative gross yield", a.yield]
+  ].map(([k,v]) =>
+    `<span class="rounded-full border border-line px-5 py-2.5 text-[13px] text-mute">${k} <span class="text-gold-light font-semibold ml-1">${v}</span></span>`
+  ).join("");
+
+  styleTabs(i);
+  markers[i].openPopup();
+  map.flyTo([a.lat, a.lng], 13, { duration:0.9 });
+}
+
+tabsEl.addEventListener("click", e => {
+  const b = e.target.closest(".tab");
+  if (b) select(Number(b.dataset.i));
+});
+
+try {
+const map = L.map("map", { scrollWheelZoom:false }).setView([25.13,55.21], 11);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  maxZoom:19,
+  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'
+}).addTo(map);
+
+const goldIcon = L.divIcon({
+  className:"",
+  html:'<div style="width:13px;height:13px;border-radius:50%;background:#C9A227;border:2.5px solid #08080A;'
+     + 'box-shadow:0 0 0 4px rgba(201,162,39,.25),0 0 14px rgba(201,162,39,.7)"></div>',
+  iconSize:[13,13], iconAnchor:[6,6], popupAnchor:[0,-10]
+});
+
+const markers = AREAS.map((a,i) => {
+  const m = L.marker([a.lat,a.lng], { icon:goldIcon, title:a.name }).addTo(map)
+    .bindPopup('<strong style="display:block;color:#08080A;margin-bottom:3px">'+a.name+'</strong>'+a.tag);
+  m.on("click", () => select(i));
+  return m;
+});
+
+map.fitBounds(AREAS.map(a => [a.lat,a.lng]), { padding:[60,60] });
+select(0);
+setTimeout(() => map.invalidateSize(), 400);
+} catch (err) {
+  console.error('Map failed to initialise:', err);
+  document.getElementById('map').innerHTML = '<div style="padding:40px;text-align:center;color:#8A8A94;font-size:13px">Map could not load.</div>';
+}
+
+/* ══════════════════════════════════════════════════
+   REVEAL ON SCROLL
+   ══════════════════════════════════════════════════ */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add("in");
+    io.unobserve(e.target);
+  });
+}, { threshold:0.12, rootMargin:"0px 0px -60px 0px" });
+
+document.querySelectorAll(".reveal").forEach((el,i) => {
+  el.style.transitionDelay = (i % 4) * 70 + "ms";
+  io.observe(el);
+});
+
+new IntersectionObserver((entries,obs) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    document.querySelectorAll(".bar-fill").forEach((f,i) =>
+      setTimeout(() => { f.style.width = f.dataset.w + "%"; }, i*160));
+    obs.disconnect();
+  });
+}, { threshold:0.3 }).observe(document.getElementById("splitCard"));
+
+/* rates and chart already started above, independent of the map/community code */
+</script>
+</body>
+</html>
